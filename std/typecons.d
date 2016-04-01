@@ -7095,16 +7095,16 @@ unittest
 }
 
 /**
- * Get a field or property member function by `ref`. Allows getting fields
- * via runtime information rather than requiring it at compile-time.
+ * Get the value of a field or property member. The member's name
+ * is resolved at runtime, rather than at compile-time.
  *
  * Params:
- *     obj = the struct or class to access
- *     name = the name of the field or property method
+ *     obj = the struct or class instance to access
+ *     name = the name of the field or property member
  * Returns:
- *     The value by reference
+ *     The current value of the field or property
  */
-auto getFeild(Prop, Obj)(auto ref Obj obj, string name)
+auto getField(Prop, Obj)(auto ref Obj obj, string name)
 {
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
     return rtPropDispatch!(false, Prop, false, Obj, refObj)(obj, name);
@@ -7119,7 +7119,7 @@ auto getFeild(Prop, Obj)(auto ref Obj obj, string name)
     }
 
     Foo foo;
-    int val = foo.getFeild!int("bar");
+    int val = foo.getField!int("bar");
     assert(val == 42);
 }
 
@@ -7131,7 +7131,7 @@ auto getFeild(Prop, Obj)(auto ref Obj obj, string name)
     }
 
     auto a = new A();
-    int val = a.getFeild!int("bar");
+    int val = a.getField!int("bar");
     assert(val == 42);
 
     struct B
@@ -7140,27 +7140,27 @@ auto getFeild(Prop, Obj)(auto ref Obj obj, string name)
     }
 
     B b;
-    int val2 = b.getFeild!int("bar");
+    int val2 = b.getField!int("bar");
     assert(val == 42);
 }
 
 /**
- * Get a field or property member function. Allows getting fields
- * via runtime information rather than requiring it at compile-time.
+ * Access a field or property by reference. The member's name
+ * is resolved at runtime, rather than at compile-time.
  *
  * Params:
- *     obj = the struct or class to access
- *     name = the name of the field or property method
+ *     obj = the struct or class instance to access
+ *     name = the name of the field or property member
  * Returns:
- *     The value of the field or property method
+ *     A reference to the field, or to the property's current value
  */
-ref Prop refGetFeild(Prop, Obj)(Obj obj, string name) if (is(Obj == class))
+ref Prop refField(Prop, Obj)(Obj obj, string name) if (is(Obj == class))
 {
     return rtPropDispatch!(false, Prop, true, Obj, false)(obj, name);
 }
 
 /// ditto
-ref Prop refGetFeild(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == class))
+ref Prop refField(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == class))
 {
     return rtPropDispatch!(false, Prop, true, Obj, true)(obj, name);
 }
@@ -7174,8 +7174,11 @@ ref Prop refGetFeild(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == 
     }
 
     Foo foo;
-    int val = foo.refGetFeild!int("bar");
+    int val = foo.refField!int("bar");
     assert(val == 42);
+
+    foo.refField!int("bar") = 27;
+    assert(foo.bar == 27);
 }
 
 @safe nothrow pure unittest
@@ -7186,29 +7189,34 @@ ref Prop refGetFeild(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == 
     }
 
     auto a = new A();
-    int val = a.refGetFeild!int("bar");
+    int val = a.refField!int("bar");
     assert(val == 42);
+    a.refField!int("bar") = 27;
+    assert(a.bar == 27);
 
     struct B
     {
-        private int b = 42;
+        int b = 42;
         ref auto bar() @property { return b; }
     }
 
     B b;
-    int val2 = b.refGetFeild!int("bar");
+    int val2 = b.refField!int("bar");
     assert(val == 42);
+    b.refField!int("bar") = 27;
+    assert(b.b == 27);
 }
 
 /**
- * Set a field or property member function. Allows setting fields
- * via runtime information rather than requiring it at compile-time.
+ * Set the value of a field or property member. The member's name
+ * is resolved at runtime, rather than at compile-time.
  *
  * Params:
- *     obj = the struct or class to access
- *     name = the name of the field or property method
+ *     obj = the struct or class instance to access
+ *     name = the name of the field or property member
+ *     value = the new value to assign to the member
  */
-void setFeild(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
+void setField(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
 {
     enum refProp = !is(Prop == class) || (Prop.sizeof > 16);
     enum refObj = !is(Obj == class) || (Obj.sizeof > 16);
@@ -7224,7 +7232,7 @@ void setFeild(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
     }
 
     Foo foo;
-    foo.setFeild("bar", 24);
+    foo.setField("bar", 24);
     assert(foo.bar == 24);
 }
 
@@ -7236,7 +7244,7 @@ void setFeild(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
     }
 
     auto a = new A();
-    a.setFeild("bar", 24);
+    a.setField("bar", 24);
     assert(a.bar == 24);
 
     struct B
@@ -7247,8 +7255,8 @@ void setFeild(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
     }
 
     B b;
-    b.setFeild("bar", 24);
-    assert(b.getFeild!int("bar") == 24);
+    b.setField("bar", 24);
+    assert(b.getField!int("bar") == 24);
 }
 
 // mixin template for the get/setField functions
@@ -7256,8 +7264,8 @@ private template rtPropDispatch(bool set, Prop, bool refProp, Obj, bool refObj)
 {
     private enum propMix = (set ? `` : `return `) ~ `mixin("obj." ~ mName)` ~ (
         set ? ` = value; return;` : `;`);
-    private enum errorMessage = Obj.stringof ~ " has no " ~
-        (set ? "assignable" : (refProp ? "lvalue " : "")) ~ "property matching " ~ Prop.stringof;
+    private enum errorMessage = Obj.stringof ~ ` has no ` ~
+        (set ? `assignable` : (refProp ? `lvalue ` : ``)) ~ `property matching ` ~ Prop.stringof;
     private enum dispMix = (set ? `void` : (refProp ? `ref Prop` : `Prop`)) ~ ` rtPropDispatch(` ~ (
             refObj ? (!set && refProp ? `return ` : ``) ~ `ref ` : ``) ~ `Obj obj, string name` ~ (
             set ? `, ` ~ (refProp ? `ref ` : ``) ~ `Prop value` : ``) ~ `)
