@@ -7104,7 +7104,7 @@ unittest
  * Returns:
  *     The current value of the field or property
  */
-auto getField(Prop, Obj)(auto ref Obj obj, string name)
+Prop getField(Prop, Obj)(auto ref Obj obj, string name)
 {
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
     return rtPropDispatch!(false, Prop, false, Obj, refObj)(obj, name);
@@ -7136,12 +7136,67 @@ auto getField(Prop, Obj)(auto ref Obj obj, string name)
 
     struct B
     {
-        auto bar() @property { return 42; }
+        auto bar() @property { return 27; }
     }
 
     B b;
     int val2 = b.getField!int("bar");
+    assert(val2 == 27);
+}
+
+/**
+ * Get the value of a field or property member. The member's name
+ * is resolved at runtime, rather than at compile-time.
+ *
+ * This overload can infer `Prop` from the type of `value`.
+ *
+ * Params:
+ *     obj = the struct or class instance to access
+ *     name = the name of the field or property member
+ *     value = will be set to the current value of the field or property
+ */
+void getField(Prop, Obj)(auto ref Obj obj, string name, out Prop value)
+{
+    enum refProp = !is(Prop == class) && (Prop.sizeof > 16);
+    enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
+    value = rtPropDispatch!(false, Prop, refProp, Obj, refObj)(obj, name);
+}
+
+///
+@safe @nogc nothrow pure unittest
+{
+    struct Foo
+    {
+        int bar = 42;
+    }
+    
+    Foo foo;
+    int val;
+    foo.getField("bar", val);
     assert(val == 42);
+}
+
+@safe nothrow pure unittest
+{
+    class A
+    {
+        int bar = 42;
+    }
+
+    auto a = new A();
+    int val;
+    a.getField("bar", val);
+    assert(val == 42);
+
+    struct B
+    {
+        auto bar() @property { return 27; }
+    }
+
+    B b;
+    int val2;
+    b.getField("bar", val2);
+    assert(val2 == 27);
 }
 
 /**
@@ -7191,20 +7246,20 @@ ref Prop refField(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == cla
     auto a = new A();
     int val = a.refField!int("bar");
     assert(val == 42);
-    a.refField!int("bar") = 27;
-    assert(a.bar == 27);
+    a.refField!int("bar") = 24;
+    assert(a.bar == 24);
 
     struct B
     {
-        int b = 42;
+        int b = 27;
         ref auto bar() @property { return b; }
     }
 
     B b;
     int val2 = b.refField!int("bar");
-    assert(val == 42);
-    b.refField!int("bar") = 27;
-    assert(b.b == 27);
+    assert(val2 == 27);
+    b.refField!int("bar") = 38;
+    assert(b.b == 38);
 }
 
 /**
@@ -7249,14 +7304,14 @@ void setField(Prop, Obj)(auto ref Obj obj, string name, auto ref Prop value)
 
     struct B
     {
-        private int b = 42;
+        private int b = 27;
         auto bar() @property { return b; }
         auto bar(int val) @property { b = val; }
     }
 
     B b;
-    b.setField("bar", 24);
-    assert(b.getField!int("bar") == 24);
+    b.setField("bar", 38);
+    assert(b.getField!int("bar") == 38);
 }
 
 // mixin template for the get/setField functions
@@ -7265,7 +7320,7 @@ private template rtPropDispatch(bool set, Prop, bool refProp, Obj, bool refObj)
     private enum propMix = (set ? `` : `return `) ~ `mixin("obj." ~ mName)` ~ (
         set ? ` = value; return;` : `;`);
     private enum errorMessage = Obj.stringof ~ ` has no ` ~
-        (set ? `assignable` : (refProp ? `lvalue ` : ``)) ~ `property matching ` ~ Prop.stringof;
+        (set ? `assignable` : (refProp ? `lvalue ` : ``)) ~ `property with the specified name matching ` ~ Prop.stringof;
     private enum dispMix = (set ? `void` : (refProp ? `ref Prop` : `Prop`)) ~ ` rtPropDispatch(` ~ (
             refObj ? (!set && refProp ? `return ` : ``) ~ `ref ` : ``) ~ `Obj obj, string name` ~ (
             set ? `, ` ~ (refProp ? `ref ` : ``) ~ `Prop value` : ``) ~ `)
