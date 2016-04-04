@@ -7098,6 +7098,8 @@ unittest
  * Get the value of a field or property member. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
+ * Note that currently only `pure @safe` property methods are supported.
+ *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
@@ -7150,6 +7152,8 @@ Prop getField(Prop, Obj)(auto ref Obj obj, string name)
  *
  * This overload can infer `Prop` from the type of `value`.
  *
+ * Note that currently only `pure @safe` property methods are supported.
+ *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
@@ -7169,7 +7173,7 @@ void getField(Prop, Obj)(auto ref Obj obj, string name, out Prop value)
     {
         int bar = 42;
     }
-    
+
     Foo foo;
     int val;
     foo.getField("bar", val);
@@ -7202,6 +7206,8 @@ void getField(Prop, Obj)(auto ref Obj obj, string name, out Prop value)
 /**
  * Access a field or property by reference. The member's name
  * is resolved at runtime, rather than at compile-time.
+ *
+ * Note that currently only `pure @safe` property methods are supported.
  *
  * Params:
  *     obj = the struct or class instance to access
@@ -7266,6 +7272,8 @@ ref Prop refField(Prop, Obj)(return ref Obj obj, string name) if (!is(Obj == cla
  * Set the value of a field or property member. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
+ * Note that currently only `pure @safe` property methods are supported.
+ *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
@@ -7326,7 +7334,7 @@ private template rtPropDispatch(bool set, Prop, bool refProp, Obj, bool refObj)
             set ? `, ` ~ (refProp ? `ref ` : ``) ~ `Prop value` : ``) ~ `)
     {
         ` ~ (
-            set ? `void` : (refProp ? `ref ` : ``) ~ `Prop`) ~ ` checkType(string mName)()
+            set ? `void` : (refProp ? `ref ` : ``) ~ `Prop`) ~ ` checkType(string mName)() pure @safe
         {
             if (!__ctfe) assert (0);
             ` ~ propMix ~ `
