@@ -7156,7 +7156,8 @@ unittest
  * Returns:
  *     The current value of the field or property
  */
-Field getField(Field, Obj)(auto ref Obj obj, string name)
+Field getField(Field, Obj, Str)(auto ref Obj obj, const Str name)
+    if (isSomeString!Str)
 {
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
     return rtFieldDispatch!(false, Field, false, Obj, refObj)(obj, name);
@@ -7188,7 +7189,8 @@ Field getField(Field, Obj)(auto ref Obj obj, string name)
  *     name = the name of the field or property member
  *     value = will be set to the current value of the field or property
  */
-void getField(Field, Obj)(auto ref Obj obj, string name, out Field value)
+void getField(Field, Obj, Str)(auto ref Obj obj, const Str name, out Field value)
+    if (isSomeString!Str)
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
@@ -7221,13 +7223,15 @@ void getField(Field, Obj)(auto ref Obj obj, string name, out Field value)
  * Returns:
  *     A reference to the field, or to the property's current value
  */
-ref Field refField(Field, Obj)(Obj obj, string name) if (is(Obj == class))
+ref Field refField(Field, Obj, Str)(Obj obj, const Str name)
+    if ( is(Obj == class) && isSomeString!Str)
 {
     return rtFieldDispatch!(false, Field, true, Obj, false)(obj, name);
 }
 
 /// ditto
-ref Field refField(Field, Obj)(return ref Obj obj, string name) if (!is(Obj == class))
+ref Field refField(Field, Obj, Str)(return ref Obj obj, const Str name)
+    if (!is(Obj == class) && isSomeString!Str)
 {
     return rtFieldDispatch!(false, Field, true, Obj, true)(obj, name);
 }
@@ -7259,14 +7263,16 @@ ref Field refField(Field, Obj)(return ref Obj obj, string name) if (!is(Obj == c
  *     name = the name of the field or property member
  *     value = the new value to assign to the member
  */
-void setField(Field, Obj)(Obj obj, string name, auto ref Field value) if (is(Obj == class))
+void setField(Field, Obj, Str)(Obj obj, const Str name, auto ref Field value)
+    if ( is(Obj == class) && isSomeString!Str)
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
     rtFieldDispatch!(true, Field, refField, Obj, false)(obj, name, value);
 }
 
 /// ditto
-void setField(Field, Obj)(ref Obj obj, string name, auto ref Field value) if (!is(Obj == class))
+void setField(Field, Obj, Str)(ref Obj obj, const Str name, auto ref Field value)
+    if (!is(Obj == class) && isSomeString!Str)
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
     rtFieldDispatch!(true, Field, refField, Obj, true)(obj, name, value);
@@ -7294,15 +7300,15 @@ private:
     enum objMix = (refObj ? (!set && refField ? `return ` : ``) ~ `ref ` : ``) ~ `Obj obj`;
     enum fldMix = set ? `, ` ~ (refField ? `ref ` : ``) ~ `Field value` : ``;
 
-    enum dispMix = rtMix ~ ` rtFieldDispatch(` ~ objMix ~ `, string name` ~ fldMix ~ `)
+    enum dispMix = rtMix ~ ` rtFieldDispatch(Str)(` ~ objMix ~ `, const Str name` ~ fldMix ~ `)
     {
-        ` ~ rtMix ~ ` checkType(string mName)() pure @safe
+        ` ~ rtMix ~ ` checkType(const Str mName)() pure @safe
         {
             if (!__ctfe) assert (0);
             ` ~ propMix ~ `
         }
 
-        foreach (mName; __traits (allMembers, Obj))
+        foreach (immutable Str mName; __traits (allMembers, Obj))
         {
             static if (__traits(compiles, checkType!mName()))
             {
@@ -7360,34 +7366,34 @@ public:
     static void testRead(Obj)(const Obj obj) @nogc
     {
         assert(obj.getField!int("valProp") == 31);
-        assert(obj.getField!int("refProp") == -78);
-        assert(obj.getField!int("field") == 564);
+        assert(obj.getField!int("refProp"w) == -78);
+        assert(obj.getField!int("field"d) == 564);
 
         int got1, got2, got3;
-        obj.getField("valProp", got1);
+        obj.getField("valProp"w, got1);
         assert(got1 == 31);
-        obj.getField("refProp", got2);
+        obj.getField("refProp"d, got2);
         assert(got2 == -78);
         obj.getField("field", got3);
         assert(got3 == 564);
 
         //assertThrown(obj.refField!(const int)("valProp"));
-        assert(obj.refField!(const int)("refProp") == -78);
-        assert(obj.refField!(const int)("field") == 564);
+        assert(obj.refField!(const int)("refProp"d) == -78);
+        assert(obj.refField!(const int)("field"w) == 564);
     }
     static void testWrite(Obj)(Obj obj) @nogc
     {
         //assertThrown(obj.refField!int("valProp"));
         obj.refField!int("refProp") = 22;
         assert(obj.refProp == 22);
-        obj.refField!int("field") = -100;
+        obj.refField!int("field"w) = -100;
         assert(obj.field == -100);
 
-        obj.setField("valProp", 50);
+        obj.setField("valProp"w, 50);
         assert(obj.valProp == 50);
         obj.setField("refProp", -191);
         assert(obj.refProp == -191);
-        obj.setField("field", -81320);
+        obj.setField("field"d, -81320);
         assert(obj.field == -81320);
     }
 
