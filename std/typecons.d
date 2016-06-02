@@ -7315,22 +7315,24 @@ unittest
  * Get the value of a field or property member. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
- * Note that currently only `pure @safe` property methods are supported.
+ * Note that only `pure @safe` property methods are supported.
  *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
  * Returns:
  *     The current value of the field or property
+ * Throws:
+ *     An `Exception` if a matching member was not found
  */
-Field getField(Field, Obj)(auto ref Obj obj, string name)
+Field getField(Field, Obj)(auto ref Obj obj, string name) pure @safe
 {
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
-    return rtFieldDispatch!(false, Field, false, Obj, refObj)(obj, name);
+    return rtFieldDispatch!(true, false, Field, false, Obj, refObj)(obj, name);
 }
 
 ///
-@safe @nogc nothrow pure unittest
+@safe pure unittest
 {
     struct Foo
     {
@@ -7340,26 +7342,33 @@ Field getField(Field, Obj)(auto ref Obj obj, string name)
     Foo foo;
     int val = foo.getField!int("bar");
     assert(val == 42);
+
+    import std.exception : assertThrown;
+    assertThrown(foo.getField!int("tan"),
+        "Foo has no property or field \"tan\" that is implicitly convertible to int");
+    assertThrown(foo.getField!char("bar"),
+        "Foo has no property or field \"bar\" that is implicitly convertible to chr");
 }
 
 /**
  * Get the value of a field or property member. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
- * This overload can infer `Field` from the type of `value`.
- *
- * Note that currently only `pure @safe` property methods are supported.
+ * This overload can infer `Field` from the type of `value`. Only
+ * `pure @safe nothrow @nogc` property methods are supported.
  *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
  *     value = will be set to the current value of the field or property
+ * Returns:
+ *     `true` if a matching member was found; `false` otherwise
  */
-void getField(Field, Obj)(auto ref Obj obj, string name, out Field value)
+bool tryGetField(Field, Obj)(auto ref Obj obj, string name, out Field value) pure @safe nothrow @nogc
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
     enum refObj = !is(Obj == class) && (Obj.sizeof > 16);
-    value = rtFieldDispatch!(false, Field, refField, Obj, refObj)(obj, name);
+    return rtFieldDispatch!(false, false, Field, refField, Obj, refObj)(obj, name, value);
 }
 
 ///
@@ -7372,35 +7381,43 @@ void getField(Field, Obj)(auto ref Obj obj, string name, out Field value)
 
     Foo foo;
     int val;
-    foo.getField("bar", val);
+    assert( foo.tryGetField("bar", val));
     assert(val == 42);
+
+    assert(!foo.tryGetField("tan", val));
+    char val2;
+    assert(!foo.tryGetField("bar", val2));
 }
 
 /**
  * Access a field or property by reference. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
- * Note that currently only `pure @safe` property methods are supported.
+ * Note that only `pure @safe` property methods are supported.
  *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
  * Returns:
  *     A reference to the field, or to the property's current value
+ * Throws:
+ *     An `Exception` if a matching member was not found
  */
-ref Field refField(Field, Obj)(Obj obj, string name) if (is(Obj == class))
+ref Field refField(Field, Obj)(Obj obj, string name) pure @safe
+    if ( is(Obj == class))
 {
-    return rtFieldDispatch!(false, Field, true, Obj, false)(obj, name);
+    return rtFieldDispatch!(true, false, Field, true, Obj, false)(obj, name);
 }
 
 /// ditto
-ref Field refField(Field, Obj)(return ref Obj obj, string name) if (!is(Obj == class))
+ref Field refField(Field, Obj)(return ref Obj obj, string name) pure @safe
+    if (!is(Obj == class))
 {
-    return rtFieldDispatch!(false, Field, true, Obj, true)(obj, name);
+    return rtFieldDispatch!(true, false, Field, true, Obj, true)(obj, name);
 }
 
 ///
-@safe @nogc nothrow pure unittest
+@safe pure unittest
 {
     struct Foo
     {
@@ -7413,30 +7430,87 @@ ref Field refField(Field, Obj)(return ref Obj obj, string name) if (!is(Obj == c
 
     foo.refField!int("bar") = 27;
     assert(foo.bar == 27);
+
+    import std.exception : assertThrown;
+    assertThrown(foo.refField!int("tan"),
+        "Foo has no lvalue property or field \"tan\" of type int");
+    assertThrown(foo.refField!long("bar"),
+        "Foo has no lvalue property or field \"bar\" of type long");
 }
 
 /**
  * Set the value of a field or property member. The member's name
  * is resolved at runtime, rather than at compile-time.
  *
- * Note that currently only `pure @safe` property methods are supported.
+ * Note that only `pure @safe` property methods are supported.
  *
  * Params:
  *     obj = the struct or class instance to access
  *     name = the name of the field or property member
  *     value = the new value to assign to the member
+ * Throws:
+ *     An `Exception` if a matching member was not found
  */
-void setField(Field, Obj)(Obj obj, string name, auto ref Field value) if (is(Obj == class))
+void setField(Field, Obj)(Obj obj, string name, auto ref Field value) pure @safe
+    if ( is(Obj == class))
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
-    rtFieldDispatch!(true, Field, refField, Obj, false)(obj, name, value);
+    rtFieldDispatch!(true, true, Field, refField, Obj, false)(obj, name, value);
 }
 
 /// ditto
-void setField(Field, Obj)(ref Obj obj, string name, auto ref Field value) if (!is(Obj == class))
+void setField(Field, Obj)(ref Obj obj, string name, auto ref Field value) pure @safe
+    if (!is(Obj == class))
 {
     enum refField = !is(Field == class) && (Field.sizeof > 16);
-    rtFieldDispatch!(true, Field, refField, Obj, true)(obj, name, value);
+    rtFieldDispatch!(true, true, Field, refField, Obj, true)(obj, name, value);
+}
+
+///
+@safe pure unittest
+{
+    struct Foo
+    {
+        int bar = 42;
+    }
+
+    Foo foo;
+    foo.setField("bar", 24);
+    assert(foo.bar == 24);
+
+    import std.exception : assertThrown;
+    assertThrown(foo.refField!int("tan"),
+        "Foo has no lvalue property or field \"tan\" that accepts int values");
+    assertThrown(foo.refField!long("bar"),
+        "Foo has no lvalue property or field \"bar\" that accepts long values");
+}
+
+/**
+ * Set the value of a field or property member. The member's name
+ * is resolved at runtime, rather than at compile-time.
+ *
+ * Note that only `pure @safe nothrow @nogc` property methods are supported.
+ *
+ * Params:
+ *     obj = the struct or class instance to access
+ *     name = the name of the field or property member
+ *     value = the new value to assign to the member
+ * Returns:
+ *     `true` if a matching member was found; `false` otherwise
+ */
+bool trySetField(Field, Obj)(Obj obj, string name, auto ref Field value) pure @safe nothrow @nogc
+    if ( is(Obj == class))
+{
+    enum refField = !is(Field == class) && (Field.sizeof > 16);
+    return rtFieldDispatch!(false, true, Field, refField, Obj, false)(obj, name, value);
+}
+
+/// ditto
+bool trySetField(Field, Obj)(ref Obj obj, string name, auto ref Field value) pure @safe nothrow @nogc
+    if (!is(Obj == class))
+{
+    enum refField = !is(Field == class) && (Field.sizeof > 16);
+    return rtFieldDispatch!(false, true, Field, refField, Obj, true)(obj, name, value);
 }
 
 ///
@@ -7448,25 +7522,40 @@ void setField(Field, Obj)(ref Obj obj, string name, auto ref Field value) if (!i
     }
 
     Foo foo;
-    foo.setField("bar", 24);
+    assert(foo.trySetField("bar", 24));
     assert(foo.bar == 24);
 }
 
 // mixin template for the get/setField functions
-private template rtFieldDispatch(bool set, Field, bool refField, Obj, bool refObj)
+private template rtFieldDispatch(bool throws, bool set, Field, bool refField, Obj, bool refObj)
 {
 private:
-    enum propMix = (set ? `` : `return `) ~ `mixin("obj." ~ mName)` ~ (set ? ` = value; return;` : `;`);
-    enum rtMix = set ? `void` : (refField ? `ref Field` : `Field`);
+    enum rtMix = throws ?
+        (set ? `void` : (refField ? `ref ` : ``) ~ `Field`) :
+        `bool`;
     enum objMix = (refObj ? (!set && refField ? `return ` : ``) ~ `ref ` : ``) ~ `Obj obj`;
-    enum fldMix = set ? `, ` ~ (refField ? `ref ` : ``) ~ `Field value` : ``;
+    enum fldMix = set ?
+        (`, ` ~ (refField ? `ref ` : ``) ~ `Field value`) :
+        (throws ? `` : `, out Field value`);
+    enum propMix = `mixin("obj." ~ mName)`;
+    enum doMix = (set ? propMix ~ ` = value; ` : (throws ? `` : `value = ` ~ propMix ~ `; `)) ~
+        `return ` ~ (throws ? (set ? `;` : propMix ~ `;`) : `true;`);
+    enum fAttrsMix = `pure @safe` ~ (throws ? `` : ` nothrow @nogc`);
+    enum errMix = throws ?
+        `throw new Exception("` ~ Obj.stringof ~ ` has no ` ~ (set ?
+            (`assignable field or property \"" ~ name ~ "\" that accepts ` ~ Field.stringof ~ ` values`):
+            (refField ?
+                (`lvalue field or property \"" ~ name ~ "\" of type ` ~ Field.stringof) :
+                (`field or property \"" ~ name ~ "\" that is implicitly convertible to ` ~ Field.stringof))
+        ) ~ `");` :
+        `return false;`;
 
-    enum dispMix = rtMix ~ ` rtFieldDispatch(` ~ objMix ~ `, string name` ~ fldMix ~ `)
+    enum dispMix = rtMix ~ ` rtFieldDispatch(` ~ objMix ~ `, string name` ~ fldMix ~ `) ` ~ fAttrsMix ~ `
     {
-        ` ~ rtMix ~ ` checkType(string mName)() pure @safe
+        ` ~ rtMix ~ ` checkType(string mName)() ` ~ fAttrsMix ~ `
         {
             if (!__ctfe) assert (0);
-            ` ~ propMix ~ `
+            ` ~ doMix ~ `
         }
 
         foreach (mName; __traits (allMembers, Obj))
@@ -7475,20 +7564,19 @@ private:
             {
                 if (mName == name)
                 {
-                    ` ~ propMix ~ `
+                    ` ~ doMix ~ `
                 }
             }
         }
 
-        assert (0, "` ~ Obj.stringof ~ ` has no ` ~ (set ? `assignable` : (refField ? `lvalue ` : ``)) ~ `
-            property or field with the specified name matching ` ~ Field.stringof ~ `");
-    } `;
+        ` ~ errMix ~ `
+    }`;
 
 public:
     mixin(dispMix);
 }
 
-@safe nothrow pure unittest
+@safe pure unittest
 {
     enum A =
 `   @safe: @nogc: nothrow: pure:
@@ -7524,27 +7612,30 @@ public:
         mixin(A);
     }
 
-    static void testRead(Obj)(const Obj obj) @nogc
+    import std.exception : assertThrown;
+    static void testRead(Obj)(const Obj obj)
     {
         assert(obj.getField!int("valProp") == 31);
         assert(obj.getField!int("refProp") == -78);
         assert(obj.getField!int("field") == 564);
 
-        int got1, got2, got3;
-        obj.getField("valProp", got1);
-        assert(got1 == 31);
-        obj.getField("refProp", got2);
-        assert(got2 == -78);
-        obj.getField("field", got3);
-        assert(got3 == 564);
-
-        //assertThrown(obj.refField!(const int)("valProp"));
+        assertThrown(obj.refField!(const int)("valProp"));
         assert(obj.refField!(const int)("refProp") == -78);
         assert(obj.refField!(const int)("field") == 564);
     }
-    static void testWrite(Obj)(Obj obj) @nogc
+    static void testTryRead(Obj)(const Obj obj) nothrow @nogc
     {
-        //assertThrown(obj.refField!int("valProp"));
+        int got1, got2, got3;
+        assert(obj.tryGetField("valProp", got1));
+        assert(got1 == 31);
+        assert(obj.tryGetField("refProp", got2));
+        assert(got2 == -78);
+        assert(obj.tryGetField("field", got3));
+        assert(got3 == 564);
+    }
+    static void testWrite(Obj)(Obj obj)
+    {
+        assertThrown(obj.refField!int("valProp"));
         obj.refField!int("refProp") = 22;
         assert(obj.refProp == 22);
         obj.refField!int("field") = -100;
@@ -7554,15 +7645,28 @@ public:
         assert(obj.valProp == 50);
         obj.setField("refProp", -191);
         assert(obj.refProp == -191);
-        obj.setField("field", -81320);
-        assert(obj.field == -81320);
+        obj.setField("field", -81_320);
+        assert(obj.field == -81_320);
+    }
+    static void testTryWrite(Obj)(Obj obj) nothrow @nogc
+    {
+        assert(obj.trySetField("valProp", 50));
+        assert(obj.valProp == 50);
+        assert(obj.trySetField("refProp", -191));
+        assert(obj.refProp == -191);
+        assert(obj.trySetField("field", -81_320));
+        assert(obj.field == -81_320);
     }
 
     S s;
     testRead(s);
+    testTryRead(s);
     testWrite(s);
+    testTryWrite(s);
 
     C c = new C();
     testRead(c);
+    testTryRead(c);
     testWrite(c);
+    testTryWrite(c);
 }

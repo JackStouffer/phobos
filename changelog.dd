@@ -231,9 +231,10 @@ assert([4, 7, 5].enumerate.maxElement!`a.value` == tuple(1, 7));
 
 $(LI $(LNAME2 getField, Added runtime member getting and setting
     via `std.typecons.getField` and `std.typecons.setField`.)
-    $(P $(XREF typecons, getField), $(XREF typecons, refField), and
-    $(XREF typecons, setField) allow scripting language style setting of
-    type fields from runtime generated strings.
+    $(P $(XREF typecons, getField), $(XREF typecons, tryGetField),
+    $(XREF typecons, refField), $(XREF typecons, setField), and
+    $(XREF typecons, trySetField) allow scripting language style
+    setting of type fields from runtime generated strings.
     )
 
 -------
