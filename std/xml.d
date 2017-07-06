@@ -373,7 +373,7 @@ S encode(S)(S s)
     return result.data;
 }
 
-@safe unittest
+@safe pure unittest
 {
     auto s = "hello";
     assert(encode(s) is s);
@@ -564,7 +564,7 @@ class Document : Element
         this(xml.tag);
         prolog = s[0 .. tagString.ptr - s.ptr];
         parse(xml);
-        epilog = xml.s;
+        epilog = *xml.s;
     }
 
     /**
@@ -589,11 +589,11 @@ class Document : Element
          * if (d1 == d2) { }
          * --------------
          */
-        override bool opEquals(Object o)
+        override bool opEquals(scope const Object o) const
         {
             const doc = toType!(const Document)(o);
             return prolog == doc.prolog
-                && (cast() this).Element.opEquals(cast() doc)
+                && (cast(const) this).Element.opEquals(cast(const) doc)
                 && epilog == doc.epilog;
         }
 
@@ -609,12 +609,12 @@ class Document : Element
          * if (d1 < d2) { }
          * --------------
          */
-        override int opCmp(Object o)
+        override int opCmp(scope const Object o) scope const
         {
             const doc = toType!(const Document)(o);
             if (prolog != doc.prolog)
                 return prolog < doc.prolog ? -1 : 1;
-            if (int cmp = (cast() this).Element.opCmp(cast() doc))
+            if (int cmp = this.Element.opCmp(doc))
                 return cmp;
             if (epilog != doc.epilog)
                 return epilog < doc.epilog ? -1 : 1;
@@ -627,7 +627,7 @@ class Document : Element
          * You should rarely need to call this function. It exists so that
          * Documents can be used as associative array keys.
          */
-        override size_t toHash() @trusted
+        override size_t toHash() scope const @trusted
         {
             return hash(prolog, hash(epilog, (cast() this).Element.toHash()));
         }
@@ -636,7 +636,7 @@ class Document : Element
          * Returns the string representation of a Document. (That is, the
          * complete XML of a document).
          */
-        override string toString() @safe
+        override string toString() scope const @safe
         {
             return prolog ~ super.toString() ~ epilog;
         }
@@ -835,14 +835,14 @@ class Element : Item
      * if (e1 == e2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const element = toType!(const Element)(o);
         immutable len = items.length;
         if (len != element.items.length) return false;
         foreach (i; 0 .. len)
         {
-            if (!items[i].opEquals(cast() element.items[i])) return false;
+            if (!items[i].opEquals(element.items[i])) return false;
         }
         return true;
     }
@@ -859,7 +859,7 @@ class Element : Item
      * if (e1 < e2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) @safe const
     {
         const element = toType!(const Element)(o);
         for (uint i=0; ; ++i)
@@ -867,8 +867,8 @@ class Element : Item
             if (i == items.length && i == element.items.length) return 0;
             if (i == items.length) return -1;
             if (i == element.items.length) return 1;
-            if (items[i] != element.items[i])
-                return items[i].opCmp(cast() element.items[i]);
+            if (!items[i].opEquals(element.items[i]))
+                return items[i].opCmp(element.items[i]);
         }
     }
 
@@ -878,7 +878,7 @@ class Element : Item
      * You should rarely need to call this function. It exists so that Elements
      * can be used as associative array keys.
      */
-    override size_t toHash() const @safe
+    override size_t toHash() scope const @safe
     {
         size_t hash = tag.toHash();
         foreach (item;items) hash += item.toHash();
@@ -918,7 +918,7 @@ class Element : Item
          *      indent = (optional) number of spaces by which to indent this
          *          element. Defaults to 2.
          */
-        override string[] pretty(uint indent=2)
+        override string[] pretty(uint indent=2) scope
         {
             import std.algorithm.searching : count;
             import std.string : rightJustify;
@@ -927,7 +927,7 @@ class Element : Item
 
             if (items.length == 1)
             {
-                Text t = cast(Text)(items[0]);
+                auto t = cast(const(Text))(items[0]);
                 if (t !is null)
                 {
                     return [tag.toStartString() ~ t.toString() ~ tag.toEndString()];
@@ -956,7 +956,7 @@ class Element : Item
          * writefln(element.toString()); // writes "<br />"
          * --------------
          */
-        override string toString() @safe
+        override string toString() scope @safe
         {
             if (isEmptyXML) return tag.toEmptyString();
 
@@ -966,7 +966,7 @@ class Element : Item
             return buffer;
         }
 
-        override @property @safe pure @nogc nothrow bool isEmptyXML() { return items.length == 0; }
+        override @property @safe pure @nogc nothrow bool isEmptyXML() const scope { return items.length == 0; }
     }
 }
 
@@ -1123,7 +1123,7 @@ class Tag
          * if (tag1 == tag2) { }
          * --------------
          */
-        override bool opEquals(Object o)
+        override bool opEquals(scope Object o)
         {
             const tag = toType!(const Tag)(o);
             return
@@ -1270,10 +1270,10 @@ class Comment : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const item = toType!(const Item)(o);
-        const t = cast(Comment) item;
+        const t = cast(const Comment) item;
         return t !is null && content == t.content;
     }
 
@@ -1289,10 +1289,10 @@ class Comment : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) scope const
     {
         const item = toType!(const Item)(o);
-        const t = cast(Comment) item;
+        const t = cast(const Comment) item;
         return t !is null && (content != t.content
             ? (content < t.content ? -1 : 1 ) : 0 );
     }
@@ -1303,14 +1303,14 @@ class Comment : Item
      * You should rarely need to call this function. It exists so that Comments
      * can be used as associative array keys.
      */
-    override size_t toHash() const nothrow { return hash(content); }
+    override size_t toHash() scope const nothrow { return hash(content); }
 
     /**
      * Returns a string representation of this comment
      */
-    override string toString() const @safe pure nothrow { return "<!--" ~ content ~ "-->"; }
+    override string toString() scope const @safe pure nothrow { return "<!--" ~ content ~ "-->"; }
 
-    override @property @safe @nogc pure nothrow bool isEmptyXML() const { return false; } /// Returns false always
+    override @property @safe @nogc pure nothrow scope bool isEmptyXML() const { return false; } /// Returns false always
 }
 
 @safe unittest // issue 16241
@@ -1358,10 +1358,10 @@ class CData : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const item = toType!(const Item)(o);
-        const t = cast(CData) item;
+        const t = cast(const CData) item;
         return t !is null && content == t.content;
     }
 
@@ -1377,10 +1377,10 @@ class CData : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) scope const
     {
         const item = toType!(const Item)(o);
-        const t = cast(CData) item;
+        const t = cast(const CData) item;
         return t !is null && (content != t.content
             ? (content < t.content ? -1 : 1 ) : 0 );
     }
@@ -1391,14 +1391,14 @@ class CData : Item
      * You should rarely need to call this function. It exists so that CDatas
      * can be used as associative array keys.
      */
-    override size_t toHash() const nothrow { return hash(content); }
+    override size_t toHash() scope const nothrow { return hash(content); }
 
     /**
      * Returns a string representation of this CData section
      */
-    override string toString() const @safe pure nothrow { return cdata ~ content ~ "]]>"; }
+    override string toString() scope const @safe pure nothrow { return cdata ~ content ~ "]]>"; }
 
-    override @property @safe @nogc pure nothrow bool isEmptyXML() const { return false; } /// Returns false always
+    override @property @safe @nogc pure nothrow scope bool isEmptyXML() const { return false; } /// Returns false always
 }
 
 /**
@@ -1435,10 +1435,10 @@ class Text : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const item = toType!(const Item)(o);
-        const t = cast(Text) item;
+        const t = cast(const Text) item;
         return t !is null && content == t.content;
     }
 
@@ -1454,10 +1454,10 @@ class Text : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) scope const
     {
         const item = toType!(const Item)(o);
-        const t = cast(Text) item;
+        const t = cast(const Text) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );
     }
@@ -1468,17 +1468,17 @@ class Text : Item
      * You should rarely need to call this function. It exists so that Texts
      * can be used as associative array keys.
      */
-    override size_t toHash() const nothrow { return hash(content); }
+    override size_t toHash() scope const nothrow { return hash(content); }
 
     /**
      * Returns a string representation of this Text section
      */
-    override string toString() const @safe @nogc pure nothrow { return content; }
+    override string toString() scope const @safe @nogc pure nothrow { return content; }
 
     /**
      * Returns true if the content is the empty string
      */
-    override @property @safe @nogc pure nothrow bool isEmptyXML() const { return content.length == 0; }
+    override @property @safe @nogc pure nothrow scope bool isEmptyXML() const { return content.length == 0; }
 }
 
 /**
@@ -1518,10 +1518,10 @@ class XMLInstruction : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const item = toType!(const Item)(o);
-        const t = cast(XMLInstruction) item;
+        const t = cast(const XMLInstruction) item;
         return t !is null && content == t.content;
     }
 
@@ -1537,10 +1537,10 @@ class XMLInstruction : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) scope const
     {
         const item = toType!(const Item)(o);
-        const t = cast(XMLInstruction) item;
+        const t = cast(const XMLInstruction) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );
     }
@@ -1551,14 +1551,14 @@ class XMLInstruction : Item
      * You should rarely need to call this function. It exists so that
      * XmlInstructions can be used as associative array keys.
      */
-    override size_t toHash() const nothrow { return hash(content); }
+    override size_t toHash() scope const nothrow { return hash(content); }
 
     /**
      * Returns a string representation of this XmlInstruction
      */
-    override string toString() const @safe pure nothrow { return "<!" ~ content ~ ">"; }
+    override string toString() scope const @safe pure nothrow { return "<!" ~ content ~ ">"; }
 
-    override @property @safe @nogc pure nothrow bool isEmptyXML() const { return false; } /// Returns false always
+    override @property @safe @nogc pure nothrow scope bool isEmptyXML() const { return false; } /// Returns false always
 }
 
 /**
@@ -1598,10 +1598,10 @@ class ProcessingInstruction : Item
      * if (item1 == item2) { }
      * --------------
      */
-    override bool opEquals(Object o)
+    override bool opEquals(scope const Object o) const
     {
         const item = toType!(const Item)(o);
-        const t = cast(ProcessingInstruction) item;
+        const t = cast(const ProcessingInstruction) item;
         return t !is null && content == t.content;
     }
 
@@ -1617,10 +1617,10 @@ class ProcessingInstruction : Item
      * if (item1 < item2) { }
      * --------------
      */
-    override int opCmp(Object o)
+    override int opCmp(scope const Object o) scope const
     {
         const item = toType!(const Item)(o);
-        const t = cast(ProcessingInstruction) item;
+        const t = cast(const ProcessingInstruction) item;
         return t !is null
             && (content != t.content ? (content < t.content ? -1 : 1 ) : 0 );
     }
@@ -1631,14 +1631,14 @@ class ProcessingInstruction : Item
      * You should rarely need to call this function. It exists so that
      * ProcessingInstructions can be used as associative array keys.
      */
-    override size_t toHash() const nothrow { return hash(content); }
+    override size_t toHash() scope const nothrow { return hash(content); }
 
     /**
      * Returns a string representation of this ProcessingInstruction
      */
-    override string toString() const @safe pure nothrow { return "<?" ~ content ~ "?>"; }
+    override string toString() scope const @safe pure nothrow { return "<?" ~ content ~ "?>"; }
 
-    override @property @safe @nogc pure nothrow bool isEmptyXML() const { return false; } /// Returns false always
+    override @property @safe @nogc pure nothrow bool isEmptyXML() scope const { return false; } /// Returns false always
 }
 
 /**
@@ -1647,16 +1647,16 @@ class ProcessingInstruction : Item
 abstract class Item
 {
     /// Compares with another Item of same type for equality
-    abstract override bool opEquals(Object o);
+    abstract override bool opEquals(scope const Object o) @safe const;
 
     /// Compares with another Item of same type
-    abstract override int opCmp(Object o);
+    abstract override int opCmp(scope const Object o) @safe const;
 
     /// Returns the hash of this item
-    abstract override size_t toHash() const;
+    abstract override size_t toHash() @safe scope const;
 
     /// Returns a string representation of this item
-    abstract override string toString() @safe const;
+    abstract override string toString() @safe scope const;
 
     /**
      * Returns an indented string representation of this item
@@ -1664,7 +1664,7 @@ abstract class Item
      * Params:
      *      indent = number of spaces by which to indent child elements
      */
-    string[] pretty(uint indent) const
+    string[] pretty(uint indent) @safe scope const
     {
         import std.string : strip;
         string s = strip(toString());
@@ -1672,7 +1672,7 @@ abstract class Item
     }
 
     /// Returns true if the item represents empty XML text
-    abstract @property @safe @nogc pure nothrow bool isEmptyXML() const;
+    abstract @property @safe @nogc pure nothrow bool isEmptyXML() scope const;
 }
 
 /**
@@ -1721,10 +1721,18 @@ class DocumentParser : ElementParser
     body
     {
         xmlText = xmlText_;
-        s = xmlText;
+        s = &xmlText;
         super();    // Initialize everything
         parse();    // Parse through the root tag (but not beyond)
     }
+}
+
+@system unittest
+{
+    auto doc = new Document("<root><child><grandchild/></child></root>");
+    assert(doc.elements.length == 1);
+    assert(doc.elements[0].tag.name == "child");
+    assert(doc.items == doc.elements);
 }
 
 /**
@@ -1748,7 +1756,7 @@ class ElementParser
     {
         Tag tag_;
         string elementStart;
-        string s;
+        string* s;
 
         Handler commentHandler = null;
         Handler cdataHandler = null;
@@ -1766,7 +1774,7 @@ class ElementParser
         }
 
         // Private constructor for empty tags
-        this(Tag tag, string t) @safe @nogc pure nothrow
+        this(Tag tag, string* t) @safe @nogc pure nothrow
         {
             s = t;
             this();
@@ -1849,7 +1857,7 @@ class ElementParser
 
     protected this() @safe @nogc pure nothrow
     {
-        elementStart = s;
+        elementStart = *s;
     }
 
     /**
@@ -2005,37 +2013,37 @@ class ElementParser
 
         while (s.length != 0)
         {
-            if (startsWith(s,"<!--"))
+            if (startsWith(*s,"<!--"))
             {
-                chop(s,4);
-                t = chop(s,indexOf(s,"-->"));
+                chop(*s,4);
+                t = chop(*s,indexOf(*s,"-->"));
                 if (commentHandler.funcptr !is null) commentHandler(t);
-                chop(s,3);
+                chop(*s,3);
             }
-            else if (startsWith(s,"<![CDATA["))
+            else if (startsWith(*s,"<![CDATA["))
             {
-                chop(s,9);
-                t = chop(s,indexOf(s,"]]>"));
+                chop(*s,9);
+                t = chop(*s,indexOf(*s,"]]>"));
                 if (cdataHandler.funcptr !is null) cdataHandler(t);
-                chop(s,3);
+                chop(*s,3);
             }
-            else if (startsWith(s,"<!"))
+            else if (startsWith(*s,"<!"))
             {
-                chop(s,2);
-                t = chop(s,indexOf(s,">"));
+                chop(*s,2);
+                t = chop(*s,indexOf(*s,">"));
                 if (xiHandler.funcptr !is null) xiHandler(t);
-                chop(s,1);
+                chop(*s,1);
             }
-            else if (startsWith(s,"<?"))
+            else if (startsWith(*s,"<?"))
             {
-                chop(s,2);
-                t = chop(s,indexOf(s,"?>"));
+                chop(*s,2);
+                t = chop(*s,indexOf(*s,"?>"));
                 if (piHandler.funcptr !is null) piHandler(t);
-                chop(s,2);
+                chop(*s,2);
             }
-            else if (startsWith(s,"<"))
+            else if (startsWith(*s,"<"))
             {
-                tag_ = new Tag(s,true);
+                tag_ = new Tag(*s,true);
                 if (root is null)
                     return; // Return to constructor of derived class
 
@@ -2058,9 +2066,12 @@ class ElementParser
                     const startTag = startTags[tag_.name];
                     string text;
 
+                    if (startTag.tagString.length == 0)
+                        assert(0);
+
                     immutable(char)* p = startTag.tagString.ptr
                         + startTag.tagString.length;
-                    immutable(char)* q = tag_.tagString.ptr;
+                    immutable(char)* q = &tag_.tagString[0];
                     text = decode(p[0..(q-p)], DecodeMode.LOOSE);
 
                     auto element = new Element(startTag);
@@ -2088,7 +2099,7 @@ class ElementParser
 
                     // Handle the pretend start tag
                     string s2;
-                    auto parser = new ElementParser(startTag,s2);
+                    auto parser = new ElementParser(startTag,&s2);
                     auto handler1 = startTag.name in onStartTag;
                     if (handler1 !is null) (*handler1)(parser);
                     else
@@ -2110,7 +2121,7 @@ class ElementParser
             }
             else
             {
-                t = chop(s,indexOf(s,"<"));
+                t = chop(*s,indexOf(*s,"<"));
                 if (rawTextHandler.funcptr !is null)
                     rawTextHandler(t);
                 else if (textHandler.funcptr !is null)
@@ -2713,7 +2724,7 @@ private
  * parse failure (the XML equivalent of a stack trace), giving the line and
  * column number of every failure at every level.
  */
-void check(string s) pure
+void check(string s) @safe pure
 {
     try
     {
@@ -2903,16 +2914,15 @@ class CheckException : XMLException
         this.err = err;
     }
 
-    private void complete(string entire) pure
+    private void complete(string entire) @safe pure
     {
-        import std.encoding : transcode;
         import std.string : count, lastIndexOf;
+        import std.utf : toUTF32;
 
         string head = entire[0..$-tail.length];
         ptrdiff_t n = head.lastIndexOf('\n') + 1;
         line = head.count("\n") + 1;
-        dstring t;
-        transcode(head[n..$],t);
+        dstring t = toUTF32(head[n..$]);
         column = t.length + 1;
         if (err !is null) err.complete(entire);
     }
@@ -2936,7 +2946,7 @@ private alias Err = CheckException;
 
 private
 {
-    T toType(T)(Object o)
+    inout(T) toType(T)(inout Object o)
     {
         T t = cast(T)(o);
         if (t is null)

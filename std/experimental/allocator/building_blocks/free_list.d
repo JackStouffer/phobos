@@ -117,8 +117,8 @@ struct FreeList(ParentAllocator,
         ///
         @safe unittest
         {
-            import std.experimental.allocator.mallocator : Mallocator;
             import std.experimental.allocator.common : chooseAtRuntime;
+            import std.experimental.allocator.mallocator : Mallocator;
 
             FreeList!(Mallocator, chooseAtRuntime, chooseAtRuntime) a;
             a.min = 64;
@@ -673,9 +673,9 @@ struct ContiguousFreeList(ParentAllocator,
 ///
 @safe unittest
 {
-    import std.experimental.allocator.gc_allocator : GCAllocator;
     import std.experimental.allocator.building_blocks.allocator_list
         : AllocatorList;
+    import std.experimental.allocator.gc_allocator : GCAllocator;
 
     import std.experimental.allocator.common : unbounded;
 
@@ -749,8 +749,8 @@ struct ContiguousFreeList(ParentAllocator,
 FreeList shared across threads. Allocation and deallocation are lock-free. The
 parameters have the same semantics as for $(D FreeList).
 
-$(D expand) is defined to forward to $(ParentAllocator.expand) (it must be also
-$(D shared)).
+$(D expand) is defined to forward to $(D ParentAllocator.expand)
+(it must be also $(D shared)).
 */
 struct SharedFreeList(ParentAllocator,
     size_t minSize, size_t maxSize = minSize, size_t approxMaxNodes = unbounded)
@@ -896,8 +896,8 @@ struct SharedFreeList(ParentAllocator,
         ///
         @safe unittest
         {
-            import std.experimental.allocator.mallocator : Mallocator;
             import std.experimental.allocator.common : chooseAtRuntime;
+            import std.experimental.allocator.mallocator : Mallocator;
 
             shared SharedFreeList!(Mallocator, chooseAtRuntime, chooseAtRuntime) a;
             // Set the maxSize first so setting the minSize doesn't throw
@@ -917,8 +917,8 @@ struct SharedFreeList(ParentAllocator,
         ///
         @safe unittest
         {
-            import std.experimental.allocator.mallocator : Mallocator;
             import std.experimental.allocator.common : chooseAtRuntime;
+            import std.experimental.allocator.mallocator : Mallocator;
 
             shared SharedFreeList!(Mallocator, 50, 50, chooseAtRuntime) a;
             // Set the maxSize first so setting the minSize doesn't throw
@@ -1049,10 +1049,10 @@ struct SharedFreeList(ParentAllocator,
 
 @system unittest
 {
-    import std.algorithm.comparison : equal;
-    import std.range : repeat;
-    import std.experimental.allocator.mallocator : Mallocator;
     import core.thread : ThreadGroup;
+    import std.algorithm.comparison : equal;
+    import std.experimental.allocator.mallocator : Mallocator;
+    import std.range : repeat;
 
     static shared SharedFreeList!(Mallocator, 64, 128, 10) a;
 

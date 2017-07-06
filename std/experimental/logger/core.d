@@ -1,17 +1,12 @@
 ///
 module std.experimental.logger.core;
 
+import core.sync.mutex : Mutex;
 import std.datetime;
 import std.range.primitives;
 import std.traits;
-import core.sync.mutex : Mutex;
 
 import std.experimental.logger.filelogger;
-
-shared static this()
-{
-    stdSharedLoggerMutex = new Mutex;
-}
 
 /** This template evaluates if the passed $(D LogLevel) is active.
 The previously described version statements are used to decide if the
@@ -636,8 +631,6 @@ private struct MsgRange
 
     private Logger log;
 
-    private char[] buffer;
-
     this(Logger log) @safe
     {
         this.log = log;
@@ -652,8 +645,9 @@ private struct MsgRange
     void put(dchar elem) @safe
     {
         import std.utf : encode;
-        encode(this.buffer, elem);
-        log.logMsgPart(this.buffer);
+        char[4] buffer;
+        size_t len = encode(buffer, elem);
+        log.logMsgPart(buffer[0 .. len]);
     }
 }
 
@@ -1618,7 +1612,6 @@ abstract class Logger
 
 // Thread Global
 
-private __gshared Mutex stdSharedLoggerMutex;
 private __gshared Logger stdSharedDefaultLogger;
 private shared Logger stdSharedLogger;
 private shared LogLevel stdLoggerGlobalLogLevel = LogLevel.all;
@@ -1633,15 +1626,12 @@ private @property Logger defaultSharedLoggerImpl() @trusted
 
     static __gshared align(FileLogger.alignof) void[__traits(classInstanceSize, FileLogger)] _buffer;
 
-    synchronized (stdSharedLoggerMutex)
-    {
+    import std.concurrency : initOnce;
+    initOnce!stdSharedDefaultLogger({
         auto buffer = cast(ubyte[]) _buffer;
+        return emplace!FileLogger(buffer, stderr, LogLevel.all);
+    }());
 
-        if (stdSharedDefaultLogger is null)
-        {
-            stdSharedDefaultLogger = emplace!FileLogger(buffer, stderr, LogLevel.all);
-        }
-    }
     return stdSharedDefaultLogger;
 }
 
@@ -2184,8 +2174,8 @@ version(unittest) private void testFuncNames(Logger logger) @safe
 @safe unittest
 {
     import std.conv : to;
-    import std.string : indexOf;
     import std.format : format;
+    import std.string : indexOf;
 
     auto oldunspecificLogger = sharedLog;
 
@@ -3006,7 +2996,7 @@ private void trustedStore(T)(ref shared T dst, ref T src) @trusted
 // to shared logger
 @system unittest
 {
-    import std.concurrency, core.atomic, core.thread;
+    import core.atomic, core.thread, std.concurrency;
 
     static shared logged_count = 0;
 
@@ -3104,4 +3094,92 @@ private void trustedStore(T)(ref shared T dst, ref T src) @trusted
     SystemToString sts;
     tl.logf("%s", sts);
     assert(tl.msg == SystemToStringMsg);
+}
+
+// Issue 17328
+@safe unittest
+{
+    import std.format : format;
+
+    ubyte[] data = [0];
+    string s = format("%(%02x%)", data); // format 00
+    assert(s == "00");
+
+    auto tl = new TestLogger();
+
+    tl.infof("%(%02x%)", data);    // infof    000
+
+    size_t i;
+    string fs = tl.msg;
+    for (; i < s.length; ++i)
+    {
+        assert(s[s.length - 1 - i] == fs[fs.length - 1 - i], fs);
+    }
+    assert(fs.length == 2);
+}
+
+// Issue 15954
+@safe unittest
+{
+    import std.conv : to;
+    auto tl = new TestLogger();
+    tl.log("123456789".to!wstring);
+    assert(tl.msg == "123456789");
+}
+
+// Issue 16256
+@safe unittest
+{
+    import std.conv : to;
+    auto tl = new TestLogger();
+    tl.log("123456789"d);
+    assert(tl.msg == "123456789");
+}
+
+// Issue 15517
+@system unittest
+{
+    import std.file : exists, remove;
+    import std.stdio : File;
+    import std.string : indexOf;
+
+    string fn = "logfile.log";
+    if (exists(fn))
+    {
+        remove(fn);
+    }
+
+    auto oldShared = sharedLog;
+    scope(exit)
+    {
+        sharedLog = oldShared;
+        if (exists(fn))
+        {
+            remove(fn);
+        }
+    }
+
+    auto ts = [ "Test log 1", "Test log 2", "Test log 3"];
+
+    auto fl = new FileLogger(fn);
+    sharedLog = fl;
+    assert(exists(fn));
+
+    foreach (t; ts)
+    {
+        log(t);
+    }
+
+    auto f = File(fn);
+    auto l = f.byLine();
+    assert(!l.empty);
+    size_t idx;
+    foreach (it; l)
+    {
+        assert(it.indexOf(ts[idx]) != -1, it);
+        ++idx;
+    }
+
+    assert(exists(fn));
+    fl.file.close();
 }

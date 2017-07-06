@@ -230,14 +230,14 @@ public import std.experimental.allocator.common,
 @system unittest
 {
     import std.algorithm.comparison : min, max;
-    import std.experimental.allocator.building_blocks.free_list : FreeList;
-    import std.experimental.allocator.gc_allocator : GCAllocator;
-    import std.experimental.allocator.building_blocks.segregator : Segregator;
-    import std.experimental.allocator.building_blocks.bucketizer : Bucketizer;
     import std.experimental.allocator.building_blocks.allocator_list
         : AllocatorList;
     import std.experimental.allocator.building_blocks.bitmapped_block
         : BitmappedBlock;
+    import std.experimental.allocator.building_blocks.bucketizer : Bucketizer;
+    import std.experimental.allocator.building_blocks.free_list : FreeList;
+    import std.experimental.allocator.building_blocks.segregator : Segregator;
+    import std.experimental.allocator.gc_allocator : GCAllocator;
 
     alias FList = FreeList!(GCAllocator, 0, unbounded);
     alias A = Segregator!(
@@ -459,93 +459,87 @@ interface ISharedAllocator
     Ternary empty() shared;
 }
 
-shared ISharedAllocator _processAllocator;
-IAllocator _threadAllocator;
+private shared ISharedAllocator _processAllocator;
+private IAllocator _threadAllocator;
 
-shared static this()
-{
-    assert(!_processAllocator);
-    import std.experimental.allocator.gc_allocator : GCAllocator;
-    _processAllocator = sharedAllocatorObject(GCAllocator.instance);
-}
-
-static this()
+private IAllocator setupThreadAllocator() nothrow @nogc @safe
 {
     /*
-    Forwards the `_threadAllocator` calls to the `_processAllocator`
+    Forwards the `_threadAllocator` calls to the `processAllocator`
     */
     static class ThreadAllocator : IAllocator
     {
         override @property uint alignment()
         {
-            return _processAllocator.alignment();
+            return processAllocator.alignment();
         }
 
         override size_t goodAllocSize(size_t s)
         {
-            return _processAllocator.goodAllocSize(s);
+            return processAllocator.goodAllocSize(s);
         }
 
         override void[] allocate(size_t n, TypeInfo ti = null)
         {
-            return _processAllocator.allocate(n, ti);
+            return processAllocator.allocate(n, ti);
         }
 
         override void[] alignedAllocate(size_t n, uint a)
         {
-            return _processAllocator.alignedAllocate(n, a);
+            return processAllocator.alignedAllocate(n, a);
         }
 
         override void[] allocateAll()
         {
-            return _processAllocator.allocateAll();
+            return processAllocator.allocateAll();
         }
 
         override bool expand(ref void[] b, size_t size)
         {
-            return _processAllocator.expand(b, size);
+            return processAllocator.expand(b, size);
         }
 
         override bool reallocate(ref void[] b, size_t size)
         {
-            return _processAllocator.reallocate(b, size);
+            return processAllocator.reallocate(b, size);
         }
 
         override bool alignedReallocate(ref void[] b, size_t size, uint alignment)
         {
-            return _processAllocator.alignedReallocate(b, size, alignment);
+            return processAllocator.alignedReallocate(b, size, alignment);
         }
 
         override Ternary owns(void[] b)
         {
-            return _processAllocator.owns(b);
+            return processAllocator.owns(b);
         }
 
         override Ternary resolveInternalPointer(const void* p, ref void[] result)
         {
-            return _processAllocator.resolveInternalPointer(p, result);
+            return processAllocator.resolveInternalPointer(p, result);
         }
 
         override bool deallocate(void[] b)
         {
-            return _processAllocator.deallocate(b);
+            return processAllocator.deallocate(b);
         }
 
         override bool deallocateAll()
         {
-            return _processAllocator.deallocateAll();
+            return processAllocator.deallocateAll();
         }
 
         override Ternary empty()
         {
-            return _processAllocator.empty();
+            return processAllocator.empty();
         }
     }
 
     assert(!_threadAllocator);
     import std.conv : emplace;
     static ulong[stateSize!(ThreadAllocator).divideRoundUp(ulong.sizeof)] _threadAllocatorState;
-    _threadAllocator = emplace!(ThreadAllocator)(_threadAllocatorState[]);
+    _threadAllocator = () @trusted { return emplace!(ThreadAllocator)(_threadAllocatorState[]); } ();
+    return _threadAllocator;
 }
 
 /**
@@ -557,7 +551,8 @@ in turn uses the garbage collected heap.
 */
 nothrow @safe @nogc @property IAllocator theAllocator()
 {
-    return _threadAllocator;
+    auto p = _threadAllocator;
+    return p !is null ? p : setupThreadAllocator();
 }
 
 /// Ditto
@@ -589,7 +584,10 @@ allocator can be cast to $(D shared).
 */
 @property shared(ISharedAllocator) processAllocator()
 {
-    return _processAllocator;
+    import std.experimental.allocator.gc_allocator : GCAllocator;
+    import std.concurrency : initOnce;
+    return initOnce!_processAllocator(
+        sharedAllocatorObject(GCAllocator.instance));
 }
 
 /// Ditto
@@ -601,10 +599,10 @@ allocator can be cast to $(D shared).
 
 @system unittest
 {
-    import std.experimental.allocator.mallocator : Mallocator;
-    import std.experimental.allocator.building_blocks.free_list : SharedFreeList;
-    import std.exception : assertThrown;
     import core.exception : AssertError;
+    import std.exception : assertThrown;
+    import std.experimental.allocator.building_blocks.free_list : SharedFreeList;
+    import std.experimental.allocator.mallocator : Mallocator;
 
     assert(processAllocator);
     assert(theAllocator);
@@ -1320,8 +1318,8 @@ if (isInputRange!R && !isInfinite!R)
 /*pure*/ nothrow @safe unittest
 {
     import std.algorithm.comparison : equal;
-    import std.internal.test.dummyrange;
     import std.experimental.allocator.gc_allocator : GCAllocator;
+    import std.internal.test.dummyrange;
     import std.range : iota;
     foreach (DummyType; AllDummyRanges)
     {

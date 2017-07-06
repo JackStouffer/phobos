@@ -503,7 +503,10 @@ template NoDuplicates(TList...)
 
     alias TL = NoDuplicates!(Types);
     static assert(is(TL == AliasSeq!(int, long, float)));
+}
 
+@safe unittest
+{
     // Bugzilla 14561: huge enums
     alias LongList = Repeat!(1500, int);
     static assert(NoDuplicates!LongList.length == 1);
@@ -1161,8 +1164,8 @@ template aliasSeqOf(alias range)
 
 @safe unittest
 {
-    import std.range : iota;
     import std.conv : to, octal;
+    import std.range : iota;
     //Testing compile time octal
     foreach (I2; aliasSeqOf!(iota(0, 8)))
         foreach (I1; aliasSeqOf!(iota(0, 8)))

@@ -185,7 +185,7 @@ PACKAGE_std_experimental = checkedint typecons
 PACKAGE_std_algorithm = comparison iteration mutation package searching setops \
   sorting
 PACKAGE_std_container = array binaryheap dlist package rbtree slist util
-PACKAGE_std_datetime = date interval package systime timezone
+PACKAGE_std_datetime = date interval package stopwatch systime timezone
 PACKAGE_std_digest = crc digest hmac md murmurhash ripemd sha
 PACKAGE_std_experimental_logger = core filelogger \
   nulllogger multilogger package
@@ -219,15 +219,14 @@ EXTRA_MODULES_COMMON := $(addprefix etc/c/,curl odbc/sql odbc/sqlext \
 EXTRA_DOCUMENTABLES := $(EXTRA_MODULES_LINUX) $(EXTRA_MODULES_WIN32) $(EXTRA_MODULES_COMMON)
 
 EXTRA_MODULES_INTERNAL := $(addprefix std/, \
-	algorithm/internal concurrencybase \
+	algorithm/internal \
 	$(addprefix internal/, \
-		cstring digest/sha_SSSE3 encodinginit \
+		cstring digest/sha_SSSE3 \
 		$(addprefix math/, biguintcore biguintnoasm biguintx86	\
 						   errorfunction gammafunction ) \
-		processinit scopebuffer test/dummyrange \
+		scopebuffer test/dummyrange \
 		$(addprefix unicode_, comp decomp grapheme norm tables) \
 	) \
-	stdiobase \
 )
 
 EXTRA_MODULES += $(EXTRA_DOCUMENTABLES) $(EXTRA_MODULES_INTERNAL)
@@ -588,22 +587,22 @@ style_lint: ../dscanner/dsc $(LIB)
 ################################################################################
 publictests: $(PUBLICTESTS)
 
-$(TEST_EXTRACTOR): $(TOOLS_DIR)/styles/tests_extractor.d
-	DFLAGS="$(DFLAGS) $(LIB) -defaultlib= -debuglib= $(LINKDL)" $(DUB) build --compiler=$${PWD}/$(DMD) --root=$(TOOLS_DIR)/styles -c tests_extractor
+$(TEST_EXTRACTOR): $(TOOLS_DIR)/styles/tests_extractor.d $(LIB)
+	DFLAGS="$(DFLAGS) $(LIB) -defaultlib= -debuglib= $(LINKDL)" $(DUB) build --force --compiler=$${PWD}/$(DMD) --root=$(TOOLS_DIR)/styles -c tests_extractor
 
 ################################################################################
 # Extract public tests of a module and test them in an separate file (i.e. without its module)
 # This is done to check for potentially missing imports in the examples, e.g.
 # make -f posix.mak std/format.publictests
 ################################################################################
-%.publictests: %.d $(LIB) $(TEST_EXTRACTOR)
+%.publictests: %.d $(LIB) $(TEST_EXTRACTOR) | $(PUBLICTESTS_DIR)/.directory
 	@$(TEST_EXTRACTOR) --inputdir  $< --outputdir $(PUBLICTESTS_DIR)
 	@$(DMD) $(DFLAGS) -defaultlib= -debuglib= $(LIB) -main -unittest -run $(PUBLICTESTS_DIR)/$(subst /,_,$<)
 
 has_public_example: $(LIB)
 	#  checks whether public function have public examples (for now some modules are excluded)
 	rm -rf ./out
-	DFLAGS="$(DFLAGS) $(LIB) -defaultlib= -debuglib= $(LINKDL)" $(DUB) --compiler=$${PWD}/$(DMD) --root=../tools/styles -c has_public_example -- --inputdir . --ignore "etc,array.d,allocator,base64.d,bitmanip.d,concurrency.d,conv.d,csv.d,datetime/date.d,datetime/interval.d,datetime/package.d,datetime/systime.d,datetime/timezone.d,demangle.d,digest/hmac.d,digest/sha.d,encoding.d,exception.d,file.d,format.d,getopt.d,index.d,internal,isemail.d,json.d,logger/core.d,logger/nulllogger.d,math.d,mathspecial.d,net/curl.d,numeric.d,parallelism.d,path.d,process.d,random.d,range,regex/package.d,socket.d,stdio.d,string.d,traits.d,typecons.d,uni.d,unittest.d,uri.d,utf.d,uuid.d,xml.d,zlib.d"
+	DFLAGS="$(DFLAGS) $(LIB) $(LINKDL)" $(DUB) -v --compiler=$${PWD}/$(DMD) --root=../tools/styles -c has_public_example -- --inputdir std --ignore "array.d,allocator,base64.d,bitmanip.d,concurrency.d,conv.d,csv.d,datetime/date.d,datetime/interval.d,datetime/package.d,datetime/stopwatch.d,datetime/systime.d,datetime/timezone.d,demangle.d,digest/hmac.d,digest/sha.d,encoding.d,exception.d,file.d,format.d,getopt.d,index.d,internal,isemail.d,json.d,logger/core.d,logger/nulllogger.d,math.d,mathspecial.d,net/curl.d,numeric.d,parallelism.d,path.d,process.d,random.d,range,regex/package.d,socket.d,stdio.d,string.d,traits.d,typecons.d,uni.d,unittest.d,uri.d,utf.d,uuid.d,xml.d,zlib.d"
 
 .PHONY : auto-tester-build
 auto-tester-build: all checkwhitespace

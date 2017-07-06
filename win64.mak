@@ -112,7 +112,6 @@ SRC= \
 # The separation is a workaround for bug 4904 (optlink bug 3372).
 SRC_STD_1= \
 	std\stdio.d \
-	std\stdiobase.d \
 	std\string.d \
 	std\format.d \
 	std\file.d
@@ -153,8 +152,7 @@ SRC_STD_3c= \
 	std\exception.d \
 	std\compiler.d \
 	std\system.d \
-	std\concurrency.d \
-	std\concurrencybase.d
+	std\concurrency.d
 
 SRC_STD_3d= \
 	std\bitmanip.d \
@@ -224,6 +222,7 @@ SRC_STD_DATETIME= \
 	std\datetime\date.d \
 	std\datetime\interval.d \
 	std\datetime\package.d \
+	std\datetime\stopwatch.d \
 	std\datetime\systime.d \
 	std\datetime\timezone.d
 
@@ -295,8 +294,6 @@ SRC_STD_C_FREEBSD= \
 
 SRC_STD_INTERNAL= \
 	std\internal\cstring.d \
-	std\internal\encodinginit.d \
-	std\internal\processinit.d \
 	std\internal\unicode_tables.d \
 	std\internal\unicode_comp.d \
 	std\internal\unicode_decomp.d \
@@ -479,6 +476,7 @@ DOCS= \
 	$(DOC)\std_datetime.html \
 	$(DOC)\std_datetime_date.html \
 	$(DOC)\std_datetime_interval.html \
+	$(DOC)\std_datetime_stopwatch.html \
 	$(DOC)\std_datetime_systime.html \
 	$(DOC)\std_datetime_timezone.html \
 	$(DOC)\std_demangle.html \
@@ -819,6 +817,9 @@ $(DOC)\std_datetime_date.html : $(STDDOC) std\datetime\date.d
 
 $(DOC)\std_datetime_interval.html : $(STDDOC) std\datetime\interval.d
 	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_interval.html $(STDDOC) std\datetime\interval.d
+
+$(DOC)\std_datetime_stopwatch.html : $(STDDOC) std\datetime\stopwatch.d
+	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_stopwatch.html $(STDDOC) std\datetime\stopwatch.d
 
 $(DOC)\std_datetime_systime.html : $(STDDOC) std\datetime\systime.d
 	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_systime.html $(STDDOC) std\datetime\systime.d

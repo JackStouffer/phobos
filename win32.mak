@@ -108,7 +108,6 @@ SRC= \
 # The separation is a workaround for bug 4904 (optlink bug 3372).
 SRC_STD_1= \
 	std\stdio.d \
-	std\stdiobase.d \
 	std\string.d \
 	std\format.d \
 	std\file.d
@@ -147,8 +146,7 @@ SRC_STD_3a= \
 	std\exception.d \
 	std\compiler.d \
 	std\system.d \
-	std\concurrency.d \
-	std\concurrencybase.d
+	std\concurrency.d
 
 SRC_STD_4= \
 	std\uuid.d
@@ -199,6 +197,7 @@ SRC_STD_DATETIME= \
 	std\datetime\date.d \
 	std\datetime\interval.d \
 	std\datetime\package.d \
+	std\datetime\stopwatch.d \
 	std\datetime\systime.d \
 	std\datetime\timezone.d
 
@@ -270,8 +269,6 @@ SRC_STD_C_FREEBSD= \
 
 SRC_STD_INTERNAL= \
 	std\internal\cstring.d \
-	std\internal\encodinginit.d \
-	std\internal\processinit.d \
 	std\internal\unicode_tables.d \
 	std\internal\unicode_comp.d \
 	std\internal\unicode_decomp.d \
@@ -454,6 +451,7 @@ DOCS= \
 	$(DOC)\std_datetime.html \
 	$(DOC)\std_datetime_date.html \
 	$(DOC)\std_datetime_interval.html \
+	$(DOC)\std_datetime_stopwatch.html \
 	$(DOC)\std_datetime_systime.html \
 	$(DOC)\std_datetime_timezone.html \
 	$(DOC)\std_demangle.html \
@@ -602,7 +600,6 @@ cov : $(SRC_TO_COMPILE) $(LIB)
 #	cov
 	del *.lst
 	$(DMD) -conf= -cov=83 -unittest -main -run std\stdio.d
-	$(DMD) -conf= -cov=100 -unittest -main -run std\stdiobase.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\string.d
 	$(DMD) -conf= -cov=71 -unittest -main -run std\format.d
 	$(DMD) -conf= -cov=83 -unittest -main -run std\file.d
@@ -635,10 +632,10 @@ cov : $(SRC_TO_COMPILE) $(LIB)
 	$(DMD) -conf= -cov=79 -unittest -main -run std\random.d
 	$(DMD) -conf= -cov=92 -unittest -main -run std\exception.d
 	$(DMD) -conf= -cov=73 -unittest -main -run std\concurrency.d
-	$(DMD) -conf= -cov=100 -unittest -main -run std\concurrencybase.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\date.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\interval.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\package.d
+	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\stopwatch.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\systime.d
 	$(DMD) -conf= -cov=95 -unittest -main -run std\datetime\timezone.d
 	$(DMD) -conf= -cov=96 -unittest -main -run std\uuid.d
@@ -843,6 +840,9 @@ $(DOC)\std_datetime_date.html : $(STDDOC) std\datetime\date.d
 
 $(DOC)\std_datetime_interval.html : $(STDDOC) std\datetime\interval.d
 	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_interval.html $(STDDOC) std\datetime\interval.d
+
+$(DOC)\std_datetime_stopwatch.html : $(STDDOC) std\datetime\stopwatch.d
+	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_stopwatch.html $(STDDOC) std\datetime\stopwatch.d
 
 $(DOC)\std_datetime_systime.html : $(STDDOC) std\datetime\systime.d
 	$(DMD) -c -o- $(DDOCFLAGS) -Df$(DOC)\std_datetime_systime.html $(STDDOC) std\datetime\systime.d
