@@ -2254,7 +2254,7 @@ private
 
     void checkAttValue(ref string s) @safe pure // rule 10
     {
-        import std.algorithm.searching : countUntil;
+        import std.string : indexOf;
         import std.utf : byCodeUnit;
 
         mixin Check!("AttValue");
@@ -2266,7 +2266,7 @@ private
         s = s[1..$];
         for (;;)
         {
-            s = s[s.byCodeUnit.countUntil(c) .. $];
+            s = s[s.indexOf(c) .. $];
             if (s.length == 0) fail("unterminated attribute value");
             if (s[0] == '<') fail("< found in attribute value");
             if (s[0] == c) break;

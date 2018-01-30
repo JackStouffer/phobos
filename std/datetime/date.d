@@ -3037,16 +3037,15 @@ public:
     static DateTime fromISOString(S)(in S isoString) @safe pure
         if (isSomeString!S)
     {
-        import std.algorithm.searching : countUntil;
         import std.exception : enforce;
         import std.format : format;
-        import std.string : strip;
+        import std.string : indexOf, strip;
         import std.utf : byCodeUnit;
 
         auto str = strip(isoString);
 
         enforce(str.length >= 15, new DateTimeException(format("Invalid ISO String: %s", isoString)));
-        auto t = str.byCodeUnit.countUntil('T');
+        auto t = str.indexOf('T');
 
         enforce(t != -1, new DateTimeException(format("Invalid ISO String: %s", isoString)));
 
@@ -3138,16 +3137,15 @@ public:
     static DateTime fromISOExtString(S)(in S isoExtString) @safe pure
         if (isSomeString!(S))
     {
-        import std.algorithm.searching : countUntil;
         import std.exception : enforce;
         import std.format : format;
-        import std.string : strip;
+        import std.string : indexOf, strip;
         import std.utf : byCodeUnit;
 
         auto str = strip(isoExtString);
 
         enforce(str.length >= 15, new DateTimeException(format("Invalid ISO Extended String: %s", isoExtString)));
-        auto t = str.byCodeUnit.countUntil('T');
+        auto t = str.indexOf('T');
 
         enforce(t != -1, new DateTimeException(format("Invalid ISO Extended String: %s", isoExtString)));
 
@@ -3238,16 +3236,15 @@ public:
     static DateTime fromSimpleString(S)(in S simpleString) @safe pure
         if (isSomeString!(S))
     {
-        import std.algorithm.searching : countUntil;
         import std.exception : enforce;
         import std.format : format;
-        import std.string : strip;
+        import std.string : indexOf, strip;
         import std.utf : byCodeUnit;
 
         auto str = strip(simpleString);
 
         enforce(str.length >= 15, new DateTimeException(format("Invalid string format: %s", simpleString)));
-        auto t = str.byCodeUnit.countUntil(' ');
+        auto t = str.indexOf(' ');
 
         enforce(t != -1, new DateTimeException(format("Invalid string format: %s", simpleString)));
 
